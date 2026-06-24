@@ -1,0 +1,27 @@
+# Require KMS key rotation.
+#
+# Module : terraform-aws-modules/kms/aws
+# Resource: aws_kms_key
+#
+# Matches terraform-aws-modules/kms when enable_key_rotation = true.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "kms-key-rotation-enabled",
+	"message":     "KMS keys must have automatic key rotation enabled.",
+}
+
+kms_keys = plan.find_resources("aws_kms_key")
+
+violations = plan.filter_attribute_not_in_list(
+	kms_keys,
+	"enable_key_rotation",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

@@ -1,0 +1,25 @@
+terraform_version = "1.5.7"
+
+planned_values = {
+  "resources": {},
+}
+
+resource_changes = {
+  "aws_s3_bucket.this": {
+    "address": "module.s3.aws_s3_bucket.this",
+    "change": {
+      "actions": ["create"],
+      "after": {
+        "bucket": "insecure-bucket",
+        "force_destroy": false,
+        "tags": {},
+      },
+      "before": null,
+    },
+    "mode": "managed",
+    "module_address": "module.s3",
+    "name": "this",
+    "provider_name": "registry.terraform.io/hashicorp/aws",
+    "type": "aws_s3_bucket",
+  },
+}

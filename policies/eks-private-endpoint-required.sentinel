@@ -1,0 +1,28 @@
+# Require private EKS API endpoint access.
+#
+# Module : terraform-aws-modules/eks/aws
+# Resource: aws_eks_cluster
+#
+# Aligns with terraform-aws-modules/eks cluster_endpoint_private_access = true
+# for production clusters.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "eks-private-endpoint-required",
+	"message":     "EKS clusters must enable private API endpoint access.",
+}
+
+eks_clusters = plan.find_resources("aws_eks_cluster")
+
+violations = plan.filter_attribute_not_in_list(
+	eks_clusters,
+	"vpc_config.0.endpoint_private_access",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

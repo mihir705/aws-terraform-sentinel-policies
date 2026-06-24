@@ -1,0 +1,258 @@
+# Shared tfplan/v2 helper functions for AWS Sentinel policies.
+#
+# Adapted from HashiCorp terraform-sentinel-policies:
+# https://github.com/hashicorp/terraform-sentinel-policies/tree/main/common-functions/tfplan-functions
+#
+# Provides resource discovery, nested attribute evaluation, and reusable
+# filter utilities used across this policy set.
+
+import "tfplan/v2" as tfplan
+import "strings"
+import "types"
+
+find_resources = func(type) {
+	resources = filter tfplan.resource_changes as address, rc {
+		rc.type is type and
+			rc.mode is "managed" and
+			(rc.change.actions contains "create" or
+				rc.change.actions contains "update" or
+				rc.change.actions contains "read" or
+				(rc.change.actions contains "no-op" and rc.change.after is not null))
+	}
+
+	return resources
+}
+
+find_blocks = func(parent, child) {
+	if (types.type_of(parent) is "map" and "change" in keys(parent)) and
+		(types.type_of(parent.change) is "map" and "after" in keys(parent.change)) {
+		if types.type_of(parent.change.after[child] else null) is "list" {
+			return parent.change.after[child]
+		}
+		return []
+	}
+
+	if types.type_of(parent[child] else null) is "list" {
+		return parent[child]
+	}
+
+	return []
+}
+
+to_string = func(obj) {
+	case types.type_of(obj) {
+		when "string":
+			return obj
+		when "int", "float", "bool":
+			return string(obj)
+		when "null":
+			return "null"
+		when "undefined":
+			return "undefined"
+		when "list":
+			output = "["
+			lastIndex = length(obj) - 1
+			for obj as index, value {
+				if index < lastIndex {
+					output += to_string(value) + ", "
+				} else {
+					output += to_string(value)
+				}
+			}
+			output += "]"
+			return output
+		when "map":
+			output = "{"
+			theKeys = keys(obj)
+			lastIndex = length(theKeys) - 1
+			for theKeys as index, key {
+				if index < lastIndex {
+					output += to_string(key) + ": " + to_string(obj[key]) + ", "
+				} else {
+					output += to_string(key) + ": " + to_string(obj[key])
+				}
+			}
+			output += "}"
+			return output
+		else:
+			return ""
+	}
+}
+
+evaluate_attribute = func(r, attribute) {
+	attributes = strings.split(attribute, ".")
+
+	if attributes[0] matches "^[0-9]+$" {
+		a = int(attributes[0])
+		if types.type_of(r) is not "list" {
+			return undefined
+		}
+	} else {
+		a = attributes[0]
+	}
+
+	if (types.type_of(r) is "map" and "change" in keys(r)) and
+		(types.type_of(r.change) is "map" and "after" in keys(r.change)) {
+		new_r = r.change.after[a] else null
+	} else {
+		new_r = r[a] else null
+	}
+
+	if length(attributes) > 1 {
+		attributes = attributes[1:length(attributes)]
+		attribute = strings.join(attributes, ".")
+		return evaluate_attribute(new_r, attribute)
+	}
+
+	return new_r
+}
+
+print_violations = func(messages, prefix) {
+	for messages as address, message {
+		print(prefix, message)
+	}
+	return true
+}
+
+filter_attribute_not_in_list = func(resources, attr, allowed, prtmsg) {
+	violators = {}
+	messages = {}
+
+	for resources as address, rc {
+		v = evaluate_attribute(rc, attr) else null
+		if v is null {
+			v = "null"
+		}
+
+		if v not in allowed {
+			message = to_string(address) + " has " + to_string(attr) + " with value " +
+				to_string(v) +
+				" that is not in the allowed list: " +
+				to_string(allowed)
+			violators[address] = rc
+			messages[address] = message
+			if prtmsg {
+				print(message)
+			}
+		}
+	}
+
+	return {"resources": violators, "messages": messages}
+}
+
+filter_attribute_is_value = func(resources, attr, value, prtmsg) {
+	violators = {}
+	messages = {}
+
+	for resources as address, rc {
+		v = evaluate_attribute(rc, attr) else null
+		if v is null {
+			v = "null"
+		}
+
+		if v is value {
+			message = to_string(address) + " has " + to_string(attr) + " with forbidden value " +
+				to_string(v)
+			violators[address] = rc
+			messages[address] = message
+			if prtmsg {
+				print(message)
+			}
+		}
+	}
+
+	return {"resources": violators, "messages": messages}
+}
+
+filter_attribute_contains_items_from_list = func(resources, attr, forbidden, prtmsg) {
+	violators = {}
+	messages = {}
+
+	for resources as address, rc {
+		v = evaluate_attribute(rc, attr) else null
+
+		if v is null {
+			if "null" in forbidden {
+				message = to_string(address) + " has " + to_string(attr) + " with forbidden value null"
+				violators[address] = rc
+				messages[address] = message
+				if prtmsg {
+					print(message)
+				}
+			}
+			continue
+		}
+
+		if types.type_of(v) is not "list" {
+			v = [v]
+		}
+
+		matched = false
+		for v as _, item {
+			if item in forbidden {
+				matched = true
+				break
+			}
+		}
+
+		if matched {
+			message = to_string(address) + " has " + to_string(attr) + " containing forbidden value(s) from " +
+				to_string(forbidden) +
+				": " +
+				to_string(v)
+			violators[address] = rc
+			messages[address] = message
+			if prtmsg {
+				print(message)
+			}
+		}
+	}
+
+	return {"resources": violators, "messages": messages}
+}
+
+filter_attribute_does_not_exist = func(resources, attr, prtmsg) {
+	violators = {}
+	messages = {}
+
+	for resources as address, rc {
+		v = evaluate_attribute(rc, attr) else undefined
+		if v is undefined or v is null {
+			message = to_string(address) + " is missing required attribute " + to_string(attr)
+			violators[address] = rc
+			messages[address] = message
+			if prtmsg {
+				print(message)
+			}
+		}
+	}
+
+	return {"resources": violators, "messages": messages}
+}
+
+filter_resources_missing_related = func(primary_resources, related_resources, primary_attr, related_attr, prtmsg) {
+	violators = {}
+	messages = {}
+
+	related_values = []
+	for related_resources as _, related {
+		related_values = related_values + [evaluate_attribute(related, related_attr)]
+	}
+
+	for primary_resources as address, primary {
+		primary_value = evaluate_attribute(primary, primary_attr)
+		if primary_value not in related_values {
+			message = to_string(address) + " requires a related resource with " +
+				to_string(related_attr) +
+				" = " +
+				to_string(primary_value)
+			violators[address] = primary
+			messages[address] = message
+			if prtmsg {
+				print(message)
+			}
+		}
+	}
+
+	return {"resources": violators, "messages": messages}
+}

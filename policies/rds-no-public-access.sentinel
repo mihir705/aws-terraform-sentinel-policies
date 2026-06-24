@@ -1,0 +1,36 @@
+# Prohibit publicly accessible RDS instances.
+#
+# Module : terraform-aws-modules/rds/aws, terraform-aws-modules/rds-aurora/aws
+# Resource: aws_db_instance, aws_rds_cluster_instance
+#
+# Ensures publicly_accessible = false, matching secure module defaults.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "rds-no-public-access",
+	"message":     "RDS instances must not be publicly accessible.",
+}
+
+db_instances = plan.find_resources("aws_db_instance")
+cluster_instances = plan.find_resources("aws_rds_cluster_instance")
+
+instance_violations = plan.filter_attribute_is_value(
+	db_instances,
+	"publicly_accessible",
+	true,
+	true,
+)
+
+cluster_instance_violations = plan.filter_attribute_is_value(
+	cluster_instances,
+	"publicly_accessible",
+	true,
+	true,
+)
+
+main = rule {
+	length(instance_violations["messages"]) is 0 and
+	length(cluster_instance_violations["messages"]) is 0
+}

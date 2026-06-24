@@ -1,0 +1,28 @@
+name: Sentinel Policy Tests
+
+on:
+  push:
+    branches: [main, feature/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sentinel-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Sentinel
+        uses: hashicorp/setup-sentinel@v1
+        with:
+          version: "0.27.0"
+
+      - name: Format check
+        run: sentinel fmt -check -write=false lib/tfplan-functions.sentinel policies/*.sentinel
+
+      - name: Run policy tests
+        run: sentinel test policies/*.sentinel
+
+      - name: Validate policy configuration
+        run: sentinel apply -trace -config=sentinel.hcl 2>&1 || true

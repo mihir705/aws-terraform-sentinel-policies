@@ -1,0 +1,70 @@
+# Require S3 public access block on all buckets.
+#
+# Module : terraform-aws-modules/s3-bucket/aws
+# Resource: aws_s3_bucket_public_access_block
+#
+# Ensures all four Block Public Access settings are enabled, matching the
+# secure defaults recommended by the terraform-aws-modules/s3-bucket module
+# when attach_public_policy = false and block_public_* variables are true.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "s3-public-access-block",
+	"message":     "S3 buckets must block all public access (BlockPublicAcls, BlockPublicPolicy, IgnorePublicAcls, RestrictPublicBuckets).",
+}
+
+public_access_blocks = plan.find_resources("aws_s3_bucket_public_access_block")
+buckets = plan.find_resources("aws_s3_bucket")
+
+required_settings = [
+	"block_public_acls",
+	"block_public_policy",
+	"ignore_public_acls",
+	"restrict_public_buckets",
+]
+
+violations = {}
+
+for public_access_blocks as address, resource {
+	for required_settings as _, setting {
+		value = plan.evaluate_attribute(resource, setting)
+		if value is not true {
+			violations[address + "." + setting] = const.message + " Resource: " + address + ", setting: " + setting
+			print(violations[address + "." + setting])
+		}
+	}
+}
+
+protected_bucket_names = []
+for public_access_blocks as _, resource {
+	bucket_name = plan.evaluate_attribute(resource, "bucket")
+	if bucket_name is not null and bucket_name is not "" {
+		protected_bucket_names = protected_bucket_names + [bucket_name]
+	}
+}
+
+for buckets as address, bucket {
+	bucket_name = plan.evaluate_attribute(bucket, "bucket")
+	if bucket_name is null or bucket_name is "" {
+		bucket_name = plan.evaluate_attribute(bucket, "id")
+	}
+
+	if bucket_name is null or bucket_name is "" {
+		message = const.message + " Unable to resolve bucket name for " + address
+		violations[address] = message
+		print(message)
+		continue
+	}
+
+	if bucket_name not in protected_bucket_names {
+		message = const.message + " Missing aws_s3_bucket_public_access_block for bucket " + bucket_name + " (" + address + ")"
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

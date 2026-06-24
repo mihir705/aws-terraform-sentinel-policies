@@ -1,0 +1,44 @@
+# Require VPC flow logs for every VPC in the plan.
+#
+# Module : terraform-aws-modules/vpc/aws
+# Resource: aws_vpc, aws_flow_log
+#
+# The vpc module creates aws_flow_log when enable_flow_log = true. This policy
+# requires at least one flow log per VPC and validates traffic_type = ALL.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "vpc-flow-logs-required",
+	"message":     "Every VPC must have VPC Flow Logs enabled with traffic_type ALL.",
+}
+
+vpcs = plan.find_resources("aws_vpc")
+flow_logs = plan.find_resources("aws_flow_log")
+
+violations = {}
+
+if length(vpcs) > 0 and length(flow_logs) < length(vpcs) {
+	message = const.message + " Expected at least " + string(length(vpcs)) +
+		" aws_flow_log resource(s), found " +
+		string(length(flow_logs)) +
+		"."
+	violations["flow_log_count"] = message
+	print(message)
+}
+
+invalid_traffic_type = plan.filter_attribute_not_in_list(
+	flow_logs,
+	"traffic_type",
+	["ALL"],
+	true,
+)
+
+for invalid_traffic_type["messages"] as key, message {
+	violations[key] = message
+}
+
+main = rule {
+	length(violations) is 0
+}

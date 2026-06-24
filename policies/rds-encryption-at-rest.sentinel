@@ -1,0 +1,36 @@
+# Require RDS encryption at rest.
+#
+# Module : terraform-aws-modules/rds/aws, terraform-aws-modules/rds-aurora/aws
+# Resource: aws_db_instance, aws_rds_cluster
+#
+# Validates storage_encrypted = true on RDS instances and Aurora clusters.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "rds-encryption-at-rest",
+	"message":     "RDS instances and Aurora clusters must have storage encryption enabled.",
+}
+
+db_instances = plan.find_resources("aws_db_instance")
+rds_clusters = plan.find_resources("aws_rds_cluster")
+
+instance_violations = plan.filter_attribute_not_in_list(
+	db_instances,
+	"storage_encrypted",
+	[true],
+	true,
+)
+
+cluster_violations = plan.filter_attribute_not_in_list(
+	rds_clusters,
+	"storage_encrypted",
+	[true],
+	true,
+)
+
+main = rule {
+	length(instance_violations["messages"]) is 0 and
+	length(cluster_violations["messages"]) is 0
+}

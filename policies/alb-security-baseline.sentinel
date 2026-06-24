@@ -1,0 +1,51 @@
+# Require ALB access logging and deletion protection.
+#
+# Module : terraform-aws-modules/alb/aws
+# Resource: aws_lb
+#
+# Validates application load balancers enable access logs and deletion
+# protection, consistent with production-grade alb module configurations.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "alb-security-baseline",
+	"message":     "Application load balancers must enable access logs and deletion protection.",
+}
+
+load_balancers = filter tfplan.resource_changes as address, rc {
+	rc.type is "aws_lb" and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null)) and
+		plan.evaluate_attribute(rc, "load_balancer_type") is "application"
+}
+
+violations = {}
+
+deletion_protection_violations = plan.filter_attribute_not_in_list(
+	load_balancers,
+	"enable_deletion_protection",
+	[true],
+	false,
+)
+
+for deletion_protection_violations["messages"] as address, message {
+	violations[address + ".deletion_protection"] = message
+	print(message)
+}
+
+for load_balancers as address, lb {
+	access_logs_enabled = plan.evaluate_attribute(lb, "access_logs.0.enabled")
+	if access_logs_enabled is not true {
+		message = const.message + " Access logs disabled on " + address
+		violations[address + ".access_logs"] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

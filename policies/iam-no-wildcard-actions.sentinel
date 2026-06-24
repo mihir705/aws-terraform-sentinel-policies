@@ -1,0 +1,79 @@
+# Prohibit wildcard IAM actions in managed policies.
+#
+# Module : terraform-aws-modules/iam/aws
+# Resource: aws_iam_policy, aws_iam_role_policy, aws_iam_user_policy
+#
+# Prevents overly permissive policies commonly introduced via iam module
+# policy attachments. Scans policy JSON for Action or NotAction = "*".
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+import "json"
+import "types"
+
+const = {
+	"policy_name": "iam-no-wildcard-actions",
+	"message":     "IAM policies must not contain wildcard Action or NotAction (*).",
+}
+
+policy_resources = plan.find_resources("aws_iam_policy")
+inline_policies = filter tfplan.resource_changes as address, rc {
+	rc.type in ["aws_iam_role_policy", "aws_iam_user_policy", "aws_iam_group_policy"] and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null))
+}
+
+violations = {}
+
+check_policy_document = func(address, policy_json) {
+	if policy_json is null or policy_json is "" {
+		return false
+	}
+
+	doc = json.unmarshal(policy_json) else null
+	if doc is null {
+		return false
+	}
+
+	statements = doc.Statement else []
+	if types.type_of(statements) is not "list" {
+		statements = [statements]
+	}
+
+	for statements as _, statement {
+		actions = statement.Action else statement.NotAction else []
+		if types.type_of(actions) is not "list" {
+			actions = [actions]
+		}
+
+		for actions as _, action {
+			if action is "*" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+for policy_resources as address, resource {
+	policy_json = plan.evaluate_attribute(resource, "policy")
+	if check_policy_document(address, policy_json) {
+		violations[address] = const.message + " Resource: " + address
+		print(violations[address])
+	}
+}
+
+for inline_policies as address, resource {
+	policy_json = plan.evaluate_attribute(resource, "policy")
+	if check_policy_document(address, policy_json) {
+		violations[address] = const.message + " Resource: " + address
+		print(violations[address])
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

@@ -1,0 +1,82 @@
+# Prohibit public ingress on security groups.
+#
+# Module : terraform-aws-modules/security-group/aws
+# Resource: aws_security_group, aws_security_group_rule,
+#           aws_vpc_security_group_ingress_rule
+#
+# Blocks 0.0.0.0/0 and ::/0 on ingress rules, covering both inline SG rules
+# and standalone rule resources created by the security-group module.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "sg-no-public-ingress",
+	"message":     "Security groups must not allow public ingress (0.0.0.0/0 or ::/0).",
+}
+
+forbidden_cidrs = ["0.0.0.0/0", "::/0", "null"]
+
+sg_ingress_rules = filter tfplan.resource_changes as address, rc {
+	rc.type is "aws_security_group_rule" and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null)) and
+		plan.evaluate_attribute(rc, "type") is "ingress"
+}
+
+vpc_ingress_rules = filter tfplan.resource_changes as address, rc {
+	rc.type is "aws_vpc_security_group_ingress_rule" and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null))
+}
+
+violating_sg_rules = plan.filter_attribute_contains_items_from_list(
+	sg_ingress_rules,
+	"cidr_blocks",
+	forbidden_cidrs,
+	true,
+)
+
+violating_vpc_rules = plan.filter_attribute_contains_items_from_list(
+	vpc_ingress_rules,
+	"cidr_ipv4",
+	["0.0.0.0/0", "null"],
+	true,
+)
+
+violating_vpc_rules_v6 = plan.filter_attribute_contains_items_from_list(
+	vpc_ingress_rules,
+	"cidr_ipv6",
+	["::/0", "null"],
+	true,
+)
+
+all_sgs = plan.find_resources("aws_security_group")
+violating_sgs_count = 0
+
+for all_sgs as address, sg {
+	ingress_rules = plan.find_blocks(sg, "ingress")
+	violating_irs = plan.filter_attribute_contains_items_from_list(
+		ingress_rules,
+		"cidr_blocks",
+		forbidden_cidrs,
+		false,
+	)
+
+	if length(violating_irs["messages"]) > 0 {
+		violating_sgs_count += 1
+		print("SG ingress violation:", address, "contains public CIDR blocks")
+		plan.print_violations(violating_irs["messages"], "Ingress rule")
+	}
+}
+
+main = rule {
+	length(violating_sg_rules["messages"]) is 0 and
+	length(violating_vpc_rules["messages"]) is 0 and
+	length(violating_vpc_rules_v6["messages"]) is 0 and
+	violating_sgs_count is 0
+}

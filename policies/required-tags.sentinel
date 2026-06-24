@@ -1,0 +1,52 @@
+# Require standard resource tags on AWS resources.
+#
+# Modules: All terraform-aws-modules (via provider default_tags or module tags)
+# Resource: Any managed AWS resource with a tags attribute
+#
+# Ensures Environment, Owner, and ManagedBy tags are present on resources
+# being created or updated.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+import "types"
+
+const = {
+	"policy_name": "required-tags",
+	"message":     "Resources must include Environment, Owner, and ManagedBy tags.",
+}
+
+required_tag_keys = ["Environment", "Owner", "ManagedBy"]
+
+resources = filter tfplan.resource_changes as address, rc {
+	rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update") and
+		rc.type matches "^aws_" and
+		rc.type not in [
+			"aws_iam_policy",
+			"aws_iam_role_policy",
+			"aws_iam_user_policy",
+			"aws_iam_group_policy",
+		]
+}
+
+violations = {}
+
+for resources as address, resource {
+	tags = plan.evaluate_attribute(resource, "tags") else plan.evaluate_attribute(resource, "tags_all") else {}
+
+	if types.type_of(tags) is not "map" {
+		tags = {}
+	}
+
+	for required_tag_keys as _, key {
+		if key not in keys(tags) or tags[key] is "" or tags[key] is null {
+			message = const.message + " Resource " + address + " missing tag: " + key
+			violations[address + "." + key] = message
+			print(message)
+		}
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}
