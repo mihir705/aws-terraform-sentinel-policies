@@ -1,0 +1,22 @@
+# Sentinel CLI cache
+.sentinel/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Terraform (if used for fixture generation)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Local plan exports
+*.json.plan
+plan.json

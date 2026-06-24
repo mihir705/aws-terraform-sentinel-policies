@@ -1,0 +1,35 @@
+# Require Lambda functions to run inside a VPC when configured for production.
+#
+# Module : terraform-aws-modules/lambda/aws
+# Resource: aws_lambda_function
+#
+# Ensures vpc_config is present on Lambda functions. The lambda module sets
+# this when vpc_subnet_ids and vpc_security_group_ids are provided.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "lambda-vpc-config-required",
+	"message":     "Lambda functions must include vpc_config with subnet and security group IDs.",
+}
+
+lambda_functions = plan.find_resources("aws_lambda_function")
+
+violations = {}
+
+for lambda_functions as address, fn {
+	vpc_config = plan.evaluate_attribute(fn, "vpc_config") else []
+	subnet_ids = plan.evaluate_attribute(fn, "vpc_config.0.subnet_ids") else []
+	security_group_ids = plan.evaluate_attribute(fn, "vpc_config.0.security_group_ids") else []
+
+	if length(vpc_config) is 0 or length(subnet_ids) is 0 or length(security_group_ids) is 0 {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

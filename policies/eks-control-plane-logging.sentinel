@@ -1,0 +1,37 @@
+# Require EKS control plane logging.
+#
+# Module : terraform-aws-modules/eks/aws
+# Resource: aws_eks_cluster
+#
+# Ensures cluster_enabled_log_types includes audit and api logs, matching
+# terraform-aws-modules/eks recommended observability defaults.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "eks-control-plane-logging",
+	"message":     "EKS clusters must enable control plane logging (api, audit).",
+}
+
+required_log_types = ["api", "audit"]
+
+eks_clusters = plan.find_resources("aws_eks_cluster")
+
+violations = {}
+
+for eks_clusters as address, cluster {
+	enabled_logs = plan.evaluate_attribute(cluster, "enabled_cluster_log_types") else []
+
+	for required_log_types as _, required {
+		if required not in enabled_logs {
+			message = const.message + " Cluster " + address + " missing log type: " + required
+			violations[address + "." + required] = message
+			print(message)
+		}
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

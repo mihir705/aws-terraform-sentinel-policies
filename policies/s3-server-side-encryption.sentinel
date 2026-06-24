@@ -1,0 +1,61 @@
+# Require server-side encryption on S3 buckets.
+#
+# Module : terraform-aws-modules/s3-bucket/aws
+# Resource: aws_s3_bucket_server_side_encryption_configuration
+#
+# Validates SSE is configured with AES256 or aws:kms. The s3-bucket module
+# manages encryption via server_side_encryption_configuration when enabled.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "s3-server-side-encryption",
+	"message":     "S3 buckets must have server-side encryption enabled (AES256 or aws:kms).",
+}
+
+allowed_algorithms = ["AES256", "aws:kms"]
+
+encryption_configs = plan.find_resources("aws_s3_bucket_server_side_encryption_configuration")
+
+violations = {}
+
+for encryption_configs as address, resource {
+	rules = plan.find_blocks(resource, "rule")
+	if length(rules) is 0 {
+		violations[address] = const.message + " No encryption rules defined on " + address
+		print(violations[address])
+		continue
+	}
+
+	algorithm = plan.evaluate_attribute(resource, "rule.0.apply_server_side_encryption_by_default.0.sse_algorithm")
+
+	if algorithm not in allowed_algorithms {
+		violations[address] = const.message + " Invalid algorithm on " + address + ": " + string(algorithm)
+		print(violations[address])
+	}
+}
+
+buckets = plan.find_resources("aws_s3_bucket")
+configs_by_bucket = {}
+
+for encryption_configs as _, resource {
+	bucket_ref = plan.evaluate_attribute(resource, "bucket")
+	configs_by_bucket[bucket_ref] = true
+}
+
+for buckets as address, bucket {
+	bucket_ref = plan.evaluate_attribute(bucket, "bucket") else plan.evaluate_attribute(bucket, "id")
+	if bucket_ref not in keys(configs_by_bucket) {
+		inline_sse = plan.find_blocks(bucket, "server_side_encryption_configuration")
+		if length(inline_sse) is 0 {
+			message = const.message + " Missing encryption configuration for " + address
+			violations[address] = message
+			print(message)
+		}
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

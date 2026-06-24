@@ -1,0 +1,37 @@
+# Require EC2 IMDSv2.
+#
+# Module : terraform-aws-modules/ec2-instance/aws
+# Resource: aws_instance, aws_launch_template
+#
+# Enforces http_tokens = required on instance metadata options, matching AWS
+# and terraform-aws-modules/ec2-instance security recommendations.
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "ec2-imdsv2-required",
+	"message":     "EC2 instances and launch templates must require IMDSv2 (http_tokens = required).",
+}
+
+instances = plan.find_resources("aws_instance")
+launch_templates = plan.find_resources("aws_launch_template")
+
+instance_violations = plan.filter_attribute_not_in_list(
+	instances,
+	"metadata_options.0.http_tokens",
+	["required"],
+	true,
+)
+
+template_violations = plan.filter_attribute_not_in_list(
+	launch_templates,
+	"metadata_options.0.http_tokens",
+	["required"],
+	true,
+)
+
+main = rule {
+	length(instance_violations["messages"]) is 0 and
+	length(template_violations["messages"]) is 0
+}

@@ -1,0 +1,29 @@
+terraform_version = "1.5.7"
+
+planned_values = {
+  "resources": {},
+}
+
+resource_changes = {
+  "aws_kms_key.this": {
+    "address": "module.kms.aws_kms_key.this",
+    "change": {
+      "actions": ["create"],
+      "after": {
+        "enable_key_rotation": true,
+        "description": "Application encryption key",
+        "tags": {
+          "Environment": "prod",
+          "Owner": "security",
+          "ManagedBy": "terraform",
+        },
+      },
+      "before": null,
+    },
+    "mode": "managed",
+    "module_address": "module.kms",
+    "name": "this",
+    "provider_name": "registry.terraform.io/hashicorp/aws",
+    "type": "aws_kms_key",
+  },
+}

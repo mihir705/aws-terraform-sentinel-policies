@@ -1,0 +1,48 @@
+terraform_version = "1.5.7"
+
+planned_values = {
+  "resources": {},
+}
+
+resource_changes = {
+  "aws_s3_bucket.this": {
+    "address": "module.s3.aws_s3_bucket.this",
+    "change": {
+      "actions": ["create"],
+      "after": {
+        "bucket": "example-app-data",
+        "force_destroy": false,
+        "tags": {
+          "Environment": "prod",
+          "Owner": "platform-team",
+          "ManagedBy": "terraform",
+        },
+      },
+      "before": null,
+    },
+    "mode": "managed",
+    "module_address": "module.s3",
+    "name": "this",
+    "provider_name": "registry.terraform.io/hashicorp/aws",
+    "type": "aws_s3_bucket",
+  },
+  "aws_s3_bucket_public_access_block.this": {
+    "address": "module.s3.aws_s3_bucket_public_access_block.this",
+    "change": {
+      "actions": ["create"],
+      "after": {
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "bucket": "example-app-data",
+        "ignore_public_acls": true,
+        "restrict_public_buckets": true,
+      },
+      "before": null,
+    },
+    "mode": "managed",
+    "module_address": "module.s3",
+    "name": "this",
+    "provider_name": "registry.terraform.io/hashicorp/aws",
+    "type": "aws_s3_bucket_public_access_block",
+  },
+}
