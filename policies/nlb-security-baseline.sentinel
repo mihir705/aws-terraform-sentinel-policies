@@ -1,0 +1,48 @@
+# NLB load balancers must enable deletion protection and access logs.
+#
+# Module : terraform-aws-modules/alb/aws (network load balancer type)
+# Resource: aws_lb
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "nlb-security-baseline",
+	"message":     "Network load balancers must enable deletion protection and access logs.",
+}
+
+load_balancers = filter tfplan.resource_changes as address, rc {
+	rc.type is "aws_lb" and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null)) and
+		plan.evaluate_attribute(rc, "load_balancer_type") is "network"
+}
+
+violations = {}
+
+deletion = plan.filter_attribute_not_in_list(
+	load_balancers,
+	"enable_deletion_protection",
+	[true],
+	false,
+)
+
+for deletion["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+for load_balancers as address, lb {
+	logs = plan.evaluate_attribute(lb, "access_logs.0.enabled")
+	if logs is not true {
+		message = const.message + " Access logs disabled on " + address
+		violations[address + ".logs"] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

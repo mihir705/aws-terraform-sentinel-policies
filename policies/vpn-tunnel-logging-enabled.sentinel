@@ -1,0 +1,25 @@
+# VPN connections should enable CloudWatch tunnel logging.
+#
+# Module : terraform-aws-modules/vpn-gateway/aws
+# Resource: aws_vpn_connection
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "vpn-tunnel-logging-enabled",
+	"message":     "VPN connections should enable CloudWatch logging on tunnel1.",
+}
+
+connections = plan.find_resources("aws_vpn_connection")
+
+violations = plan.filter_attribute_not_in_list(
+	connections,
+	"tunnel1_log_options.0.cloudwatch_log_options.0.log_enabled",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

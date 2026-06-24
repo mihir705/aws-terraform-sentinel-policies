@@ -1,0 +1,25 @@
+# Global Accelerator must enable flow logs.
+#
+# Module : terraform-aws-modules/global-accelerator/aws
+# Resource: aws_globalaccelerator_accelerator
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "global-accelerator-flow-logs",
+	"message":     "Global Accelerator must enable flow logs (attributes.flow_logs_enabled).",
+}
+
+accelerators = plan.find_resources("aws_globalaccelerator_accelerator")
+
+violations = plan.filter_attribute_not_in_list(
+	accelerators,
+	"attributes.0.flow_logs_enabled",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

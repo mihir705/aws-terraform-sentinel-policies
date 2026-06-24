@@ -1,0 +1,25 @@
+# Transit Gateways should enable automatic acceptance controls for shared attachments.
+#
+# Module : terraform-aws-modules/transit-gateway/aws
+# Resource: aws_ec2_transit_gateway
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "transit-gateway-auto-accept-disabled",
+	"message":     "Transit Gateways must set auto_accept_shared_attachments to disable or enable as policy.",
+}
+
+gateways = plan.find_resources("aws_ec2_transit_gateway")
+
+violations = plan.filter_attribute_is_value(
+	gateways,
+	"auto_accept_shared_attachments",
+	"enable",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

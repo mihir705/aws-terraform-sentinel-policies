@@ -1,0 +1,44 @@
+# Redshift clusters must be encrypted and not publicly accessible.
+#
+# Module : terraform-aws-modules/redshift/aws
+# Resource: aws_redshift_cluster
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "redshift-encryption-no-public-access",
+	"message":     "Redshift clusters must be encrypted and not publicly accessible.",
+}
+
+clusters = plan.find_resources("aws_redshift_cluster")
+
+violations = {}
+
+encryption = plan.filter_attribute_not_in_list(
+	clusters,
+	"encrypted",
+	[true],
+	false,
+)
+
+public = plan.filter_attribute_is_value(
+	clusters,
+	"publicly_accessible",
+	true,
+	false,
+)
+
+for encryption["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+for public["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+main = rule {
+	length(violations) is 0
+}

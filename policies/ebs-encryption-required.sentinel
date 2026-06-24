@@ -1,0 +1,40 @@
+# EC2 instances from ebs-optimized module patterns must use encrypted EBS volumes.
+#
+# Module : terraform-aws-modules/ebs-optimized/aws (archived; applies to aws_instance ebs blocks)
+# Resource: aws_instance, aws_ebs_volume
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "ebs-encryption-required",
+	"message":     "EBS volumes must be encrypted.",
+}
+
+volumes = plan.find_resources("aws_ebs_volume")
+instances = plan.find_resources("aws_instance")
+
+volume_violations = plan.filter_attribute_not_in_list(
+	volumes,
+	"encrypted",
+	[true],
+	true,
+)
+
+instance_violations = {}
+
+for instances as address, instance {
+	ebs_blocks = plan.find_blocks(instance, "ebs_block_device")
+	for ebs_blocks as idx, block {
+		encrypted = plan.evaluate_attribute(block, "encrypted")
+		if encrypted is not true {
+			message = const.message + " Unencrypted EBS block on " + address
+			instance_violations[address + "." + string(idx)] = message
+			print(message)
+		}
+	}
+}
+
+main = rule {
+	length(volume_violations["messages"]) is 0 and length(instance_violations) is 0
+}

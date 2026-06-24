@@ -1,0 +1,24 @@
+# Notify Slack module SNS topics must use KMS encryption.
+#
+# Module : terraform-aws-modules/notify-slack/aws
+# Resource: aws_sns_topic, aws_lambda_function
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "notify-slack-sns-encryption",
+	"message":     "Notify Slack SNS topics must use KMS encryption (kms_master_key_id).",
+}
+
+topics = plan.find_resources("aws_sns_topic")
+
+violations = plan.filter_attribute_does_not_exist(
+	topics,
+	"kms_master_key_id",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

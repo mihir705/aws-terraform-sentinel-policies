@@ -1,0 +1,27 @@
+# WAFv2 Web ACLs must have logging configuration resources in the plan.
+#
+# Module : terraform-aws-modules/wafv2/aws
+# Resource: aws_wafv2_web_acl, aws_wafv2_web_acl_logging_configuration
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "wafv2-logging-required",
+	"message":     "Each WAFv2 Web ACL must have a corresponding logging configuration.",
+}
+
+acls = plan.find_resources("aws_wafv2_web_acl")
+log_configs = plan.find_resources("aws_wafv2_web_acl_logging_configuration")
+
+violations = {}
+
+if length(acls) > 0 and length(log_configs) < length(acls) {
+	message = const.message + " Expected " + string(length(acls)) + " logging config(s), found " + string(length(log_configs))
+	violations["log_config_count"] = message
+	print(message)
+}
+
+main = rule {
+	length(violations) is 0
+}

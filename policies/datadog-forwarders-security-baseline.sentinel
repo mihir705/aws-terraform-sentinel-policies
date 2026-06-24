@@ -1,0 +1,38 @@
+# Datadog forwarders must use encrypted S3 buckets and Lambda in VPC where applicable.
+#
+# Module : terraform-aws-modules/datadog-forwarders/aws
+# Resource: aws_s3_bucket, aws_lambda_function
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "datadog-forwarders-security-baseline",
+	"message":     "Datadog forwarder S3 buckets must block public access.",
+}
+
+buckets = plan.find_resources("aws_s3_bucket")
+blocks = plan.find_resources("aws_s3_bucket_public_access_block")
+
+protected = []
+for blocks as _, block {
+	name = plan.evaluate_attribute(block, "bucket")
+	if name is not null {
+		protected = protected + [name]
+	}
+}
+
+violations = {}
+
+for buckets as address, bucket {
+	name = plan.evaluate_attribute(bucket, "bucket")
+	if name is not null and name not in protected {
+		message = const.message + " Missing public access block for " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

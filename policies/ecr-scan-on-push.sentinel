@@ -1,0 +1,25 @@
+# ECR repositories must enable image scan on push.
+#
+# Module : terraform-aws-modules/ecr/aws
+# Resource: aws_ecr_repository
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "ecr-scan-on-push",
+	"message":     "ECR repositories must enable scan_on_push.",
+}
+
+repositories = plan.find_resources("aws_ecr_repository")
+
+violations = plan.filter_attribute_not_in_list(
+	repositories,
+	"image_scanning_configuration.0.scan_on_push",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

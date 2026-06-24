@@ -1,0 +1,44 @@
+# VPCs must enable DNS hostnames and DNS support.
+#
+# Module : terraform-aws-modules/vpc/aws
+# Resource: aws_vpc
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "vpc-dns-support-enabled",
+	"message":     "VPCs must enable enable_dns_hostnames and enable_dns_support.",
+}
+
+vpcs = plan.find_resources("aws_vpc")
+
+violations = {}
+
+hostnames = plan.filter_attribute_not_in_list(
+	vpcs,
+	"enable_dns_hostnames",
+	[true],
+	false,
+)
+
+support = plan.filter_attribute_not_in_list(
+	vpcs,
+	"enable_dns_support",
+	[true],
+	false,
+)
+
+for hostnames["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+for support["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+main = rule {
+	length(violations) is 0
+}

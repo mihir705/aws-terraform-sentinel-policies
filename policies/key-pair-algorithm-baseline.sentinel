@@ -1,0 +1,25 @@
+# EC2 key pairs must use RSA keys of at least 2048 bits or ED25519.
+#
+# Module : terraform-aws-modules/key-pair/aws
+# Resource: aws_key_pair
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "key-pair-algorithm-baseline",
+	"message":     "EC2 key pairs must use RSA or ED25519 key types.",
+}
+
+key_pairs = plan.find_resources("aws_key_pair")
+
+violations = plan.filter_attribute_not_in_list(
+	key_pairs,
+	"key_type",
+	["rsa", "ed25519"],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

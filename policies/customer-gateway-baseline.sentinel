@@ -1,0 +1,25 @@
+# Customer gateways must use IPsec.
+#
+# Module : terraform-aws-modules/customer-gateway/aws
+# Resource: aws_customer_gateway
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "customer-gateway-baseline",
+	"message":     "Customer gateways must use type ipsec.1.",
+}
+
+gateways = plan.find_resources("aws_customer_gateway")
+
+violations = plan.filter_attribute_not_in_list(
+	gateways,
+	"type",
+	["ipsec.1"],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

@@ -1,0 +1,25 @@
+# ECS services must not assign public IP addresses.
+#
+# Module : terraform-aws-modules/ecs/aws
+# Resource: aws_ecs_service
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "ecs-no-public-ip",
+	"message":     "ECS services must set assign_public_ip to false in awsvpc mode.",
+}
+
+services = plan.find_resources("aws_ecs_service")
+
+violations = plan.filter_attribute_is_value(
+	services,
+	"network_configuration.0.assign_public_ip",
+	true,
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

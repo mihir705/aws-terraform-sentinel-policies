@@ -1,0 +1,30 @@
+# Classic ELB load balancers must be internal or use SSL listeners.
+#
+# Module : terraform-aws-modules/elb/aws
+# Resource: aws_elb
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "elb-security-baseline",
+	"message":     "Classic ELB instances must enable access logs or be internal.",
+}
+
+elbs = plan.find_resources("aws_elb")
+
+violations = {}
+
+for elbs as address, elb {
+	internal = plan.evaluate_attribute(elb, "internal")
+	access_logs = plan.evaluate_attribute(elb, "access_logs.0.enabled")
+	if internal is not true and access_logs is not true {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

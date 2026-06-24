@@ -1,0 +1,25 @@
+# ACM certificates must enable certificate transparency logging.
+#
+# Module : terraform-aws-modules/acm/aws
+# Resource: aws_acm_certificate
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "acm-certificate-baseline",
+	"message":     "ACM certificates must enable certificate transparency logging.",
+}
+
+certificates = plan.find_resources("aws_acm_certificate")
+
+violations = plan.filter_attribute_not_in_list(
+	certificates,
+	"options.0.certificate_transparency_logging_preference",
+	["ENABLED"],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

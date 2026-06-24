@@ -1,0 +1,24 @@
+# Amazon Managed Prometheus workspaces must not be publicly accessible.
+#
+# Module : terraform-aws-modules/managed-service-prometheus/aws
+# Resource: aws_prometheus_workspace
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "amp-workspace-baseline",
+	"message":     "Managed Prometheus workspaces must define logging configuration.",
+}
+
+workspaces = plan.find_resources("aws_prometheus_workspace")
+
+violations = plan.filter_attribute_does_not_exist(
+	workspaces,
+	"logging_configuration.0.log_group_arn",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

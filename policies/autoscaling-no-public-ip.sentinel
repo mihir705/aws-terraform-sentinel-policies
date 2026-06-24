@@ -1,0 +1,25 @@
+# Auto Scaling launch templates must not assign public IPs.
+#
+# Module : terraform-aws-modules/autoscaling/aws
+# Resource: aws_launch_template
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "autoscaling-no-public-ip",
+	"message":     "Auto Scaling launch templates must not associate public IP addresses.",
+}
+
+templates = plan.find_resources("aws_launch_template")
+
+violations = plan.filter_attribute_is_value(
+	templates,
+	"network_interfaces.0.associate_public_ip_address",
+	true,
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

@@ -1,0 +1,24 @@
+# EMR clusters must use a security configuration.
+#
+# Module : terraform-aws-modules/emr/aws
+# Resource: aws_emr_cluster
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "emr-security-configuration-required",
+	"message":     "EMR clusters must reference a security_configuration.",
+}
+
+clusters = plan.find_resources("aws_emr_cluster")
+
+violations = plan.filter_attribute_does_not_exist(
+	clusters,
+	"security_configuration",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

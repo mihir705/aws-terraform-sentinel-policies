@@ -1,0 +1,46 @@
+# Custom EventBridge buses must not allow unrestricted cross-account access.
+#
+# Module : terraform-aws-modules/eventbridge/aws
+# Resource: aws_cloudwatch_event_bus
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "eventbridge-bus-policy-required",
+	"message":     "Custom EventBridge buses must define an event bus policy.",
+}
+
+buses = filter tfplan.resource_changes as address, rc {
+	rc.type is "aws_cloudwatch_event_bus" and
+		rc.mode is "managed" and
+		(rc.change.actions contains "create" or rc.change.actions contains "update" or
+			rc.change.actions contains "read" or
+			(rc.change.actions contains "no-op" and rc.change.after is not null)) and
+		plan.evaluate_attribute(rc, "name") is not "default"
+}
+
+policies = plan.find_resources("aws_cloudwatch_event_bus_policy")
+
+policy_buses = []
+for policies as _, policy {
+	bus = plan.evaluate_attribute(policy, "event_bus_name")
+	if bus is not null {
+		policy_buses = policy_buses + [bus]
+	}
+}
+
+violations = {}
+
+for buses as address, bus {
+	name = plan.evaluate_attribute(bus, "name")
+	if name is not null and name not in policy_buses and name is not "default" {
+		message = const.message + " Bus " + name + " (" + address + ") missing aws_cloudwatch_event_bus_policy"
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

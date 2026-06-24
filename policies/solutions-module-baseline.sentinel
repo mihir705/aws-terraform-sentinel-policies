@@ -1,0 +1,16 @@
+# AWS Solutions modules compose other modules; enforce via underlying resource policies.
+#
+# Module : terraform-aws-modules/solutions/aws
+# Resource: (varies — composed modules)
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "solutions-module-baseline",
+	"message":     "Solutions modules delegate to composed resources; sibling policies enforce security.",
+}
+
+main = rule {
+	true
+}

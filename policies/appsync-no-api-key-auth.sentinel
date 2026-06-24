@@ -1,0 +1,25 @@
+# AppSync GraphQL APIs must not rely on API_KEY authentication alone.
+#
+# Module : terraform-aws-modules/appsync/aws
+# Resource: aws_appsync_graphql_api
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "appsync-no-api-key-auth",
+	"message":     "AppSync APIs must not use API_KEY as the primary authentication type.",
+}
+
+apis = plan.find_resources("aws_appsync_graphql_api")
+
+violations = plan.filter_attribute_is_value(
+	apis,
+	"authentication_type",
+	"API_KEY",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

@@ -1,0 +1,25 @@
+# API Gateway v2 routes must not use authorization_type NONE.
+#
+# Module : terraform-aws-modules/apigateway-v2/aws
+# Resource: aws_apigatewayv2_route
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "apigateway-v2-authorization-required",
+	"message":     "API Gateway v2 routes must require authorization (JWT, AWS_IAM, or CUSTOM).",
+}
+
+routes = plan.find_resources("aws_apigatewayv2_route")
+
+violations = plan.filter_attribute_is_value(
+	routes,
+	"authorization_type",
+	"NONE",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

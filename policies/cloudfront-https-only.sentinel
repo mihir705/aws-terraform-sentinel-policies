@@ -1,0 +1,29 @@
+# CloudFront distributions must enforce HTTPS.
+#
+# Module : terraform-aws-modules/cloudfront/aws
+# Resource: aws_cloudfront_distribution
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "cloudfront-https-only",
+	"message":     "CloudFront distributions must redirect HTTP to HTTPS or use HTTPS-only origins.",
+}
+
+distributions = plan.find_resources("aws_cloudfront_distribution")
+
+violations = {}
+
+for distributions as address, dist {
+	policy = plan.evaluate_attribute(dist, "default_cache_behavior.0.viewer_protocol_policy")
+	if policy not in ["redirect-to-https", "https-only"] {
+		message = const.message + " Resource: " + address + " has policy: " + string(policy)
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

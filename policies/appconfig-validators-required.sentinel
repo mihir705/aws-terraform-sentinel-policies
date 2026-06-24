@@ -1,0 +1,29 @@
+# AppConfig configuration profiles must use validators.
+#
+# Module : terraform-aws-modules/appconfig/aws
+# Resource: aws_appconfig_configuration_profile
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "appconfig-validators-required",
+	"message":     "AppConfig configuration profiles must define at least one validator.",
+}
+
+profiles = plan.find_resources("aws_appconfig_configuration_profile")
+
+violations = {}
+
+for profiles as address, profile {
+	validators = plan.find_blocks(profile, "validator")
+	if length(validators) is 0 {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

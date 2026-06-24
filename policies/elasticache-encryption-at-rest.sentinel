@@ -1,0 +1,25 @@
+# ElastiCache replication groups must enable encryption at rest.
+#
+# Module : terraform-aws-modules/elasticache/aws
+# Resource: aws_elasticache_replication_group
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "elasticache-encryption-at-rest",
+	"message":     "ElastiCache replication groups must enable at_rest_encryption_enabled.",
+}
+
+groups = plan.find_resources("aws_elasticache_replication_group")
+
+violations = plan.filter_attribute_not_in_list(
+	groups,
+	"at_rest_encryption_enabled",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}
