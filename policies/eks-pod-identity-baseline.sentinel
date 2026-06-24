@@ -1,0 +1,30 @@
+# EKS pod identity associations must define namespace and service account.
+#
+# Module : terraform-aws-modules/eks-pod-identity/aws
+# Resource: aws_eks_pod_identity_association
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "eks-pod-identity-baseline",
+	"message":     "EKS pod identity associations must define namespace and service_account.",
+}
+
+associations = plan.find_resources("aws_eks_pod_identity_association")
+
+violations = {}
+
+for associations as address, assoc {
+	namespace = plan.evaluate_attribute(assoc, "namespace")
+	service_account = plan.evaluate_attribute(assoc, "service_account")
+	if namespace is null or namespace is "" or service_account is null or service_account is "" {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

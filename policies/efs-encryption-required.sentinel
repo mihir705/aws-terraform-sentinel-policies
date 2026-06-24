@@ -1,0 +1,25 @@
+# EFS file systems must be encrypted.
+#
+# Module : terraform-aws-modules/efs/aws
+# Resource: aws_efs_file_system
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "efs-encryption-required",
+	"message":     "EFS file systems must have encrypted = true.",
+}
+
+filesystems = plan.find_resources("aws_efs_file_system")
+
+violations = plan.filter_attribute_not_in_list(
+	filesystems,
+	"encrypted",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

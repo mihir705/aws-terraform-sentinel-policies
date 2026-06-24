@@ -1,0 +1,25 @@
+# RDS Proxy must require TLS for client connections.
+#
+# Module : terraform-aws-modules/rds-proxy/aws
+# Resource: aws_db_proxy
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "rds-proxy-tls-required",
+	"message":     "RDS Proxy must set require_tls = true.",
+}
+
+proxies = plan.find_resources("aws_db_proxy")
+
+violations = plan.filter_attribute_not_in_list(
+	proxies,
+	"require_tls",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

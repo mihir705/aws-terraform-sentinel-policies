@@ -1,0 +1,25 @@
+# MemoryDB clusters must enable TLS.
+#
+# Module : terraform-aws-modules/memory-db/aws
+# Resource: aws_memorydb_cluster
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "memorydb-tls-required",
+	"message":     "MemoryDB clusters must enable tls_enabled.",
+}
+
+clusters = plan.find_resources("aws_memorydb_cluster")
+
+violations = plan.filter_attribute_not_in_list(
+	clusters,
+	"tls_enabled",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

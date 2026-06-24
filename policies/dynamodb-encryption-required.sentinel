@@ -1,0 +1,25 @@
+# DynamoDB tables must enable server-side encryption.
+#
+# Module : terraform-aws-modules/dynamodb-table/aws
+# Resource: aws_dynamodb_table
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "dynamodb-encryption-required",
+	"message":     "DynamoDB tables must have server_side_encryption enabled.",
+}
+
+tables = plan.find_resources("aws_dynamodb_table")
+
+violations = plan.filter_attribute_not_in_list(
+	tables,
+	"server_side_encryption.0.enabled",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

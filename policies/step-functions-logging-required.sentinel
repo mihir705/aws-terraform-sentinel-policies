@@ -1,0 +1,24 @@
+# Step Functions state machines must define logging configuration.
+#
+# Module : terraform-aws-modules/step-functions/aws
+# Resource: aws_sfn_state_machine
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "step-functions-logging-required",
+	"message":     "Step Functions state machines must define logging_configuration.",
+}
+
+machines = plan.find_resources("aws_sfn_state_machine")
+
+violations = plan.filter_attribute_does_not_exist(
+	machines,
+	"logging_configuration.0.level",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

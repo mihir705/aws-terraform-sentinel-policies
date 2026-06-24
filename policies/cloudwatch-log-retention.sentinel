@@ -1,0 +1,24 @@
+# CloudWatch log groups must define retention.
+#
+# Module : terraform-aws-modules/cloudwatch/aws
+# Resource: aws_cloudwatch_log_group
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "cloudwatch-log-retention",
+	"message":     "CloudWatch log groups must set retention_in_days.",
+}
+
+log_groups = plan.find_resources("aws_cloudwatch_log_group")
+
+violations = plan.filter_attribute_does_not_exist(
+	log_groups,
+	"retention_in_days",
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

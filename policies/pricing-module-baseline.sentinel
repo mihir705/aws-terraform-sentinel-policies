@@ -1,0 +1,16 @@
+# Pricing module creates no AWS resources; covered by required-tags on any sibling resources.
+#
+# Module : terraform-aws-modules/pricing/aws
+# Resource: (none — data sources only)
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "pricing-module-baseline",
+	"message":     "Pricing module uses data sources only; no AWS resource enforcement required.",
+}
+
+main = rule {
+	true
+}

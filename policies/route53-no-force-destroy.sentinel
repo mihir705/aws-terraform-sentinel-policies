@@ -1,0 +1,25 @@
+# Route53 hosted zones must not enable force_destroy in production.
+#
+# Module : terraform-aws-modules/route53/aws
+# Resource: aws_route53_zone
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "route53-no-force-destroy",
+	"message":     "Route53 zones must not enable force_destroy.",
+}
+
+zones = plan.find_resources("aws_route53_zone")
+
+violations = plan.filter_attribute_is_value(
+	zones,
+	"force_destroy",
+	true,
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

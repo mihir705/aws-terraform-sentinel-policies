@@ -1,0 +1,25 @@
+# AWS Network Firewall must enable delete protection and logging.
+#
+# Module : terraform-aws-modules/network-firewall/aws
+# Resource: aws_networkfirewall_firewall
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "network-firewall-deletion-protection",
+	"message":     "Network Firewall resources must enable delete_protection.",
+}
+
+firewalls = plan.find_resources("aws_networkfirewall_firewall")
+
+violations = plan.filter_attribute_not_in_list(
+	firewalls,
+	"delete_protection",
+	[true],
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

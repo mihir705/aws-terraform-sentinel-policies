@@ -1,0 +1,43 @@
+# MSK clusters must use KMS encryption at rest and disable public access.
+#
+# Module : terraform-aws-modules/msk-kafka-cluster/aws
+# Resource: aws_msk_cluster
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "msk-encryption-no-public-access",
+	"message":     "MSK clusters must use KMS encryption and disable public access.",
+}
+
+clusters = plan.find_resources("aws_msk_cluster")
+
+violations = {}
+
+encryption = plan.filter_attribute_does_not_exist(
+	clusters,
+	"encryption_info.0.encryption_at_rest_kms_key_arn",
+	false,
+)
+
+for encryption["messages"] as address, message {
+	violations[address + ".encryption"] = const.message + " Missing KMS key on " + address
+	print(violations[address + ".encryption"])
+}
+
+public_access = plan.filter_attribute_is_value(
+	clusters,
+	"client_authentication.0.unauthenticated",
+	true,
+	false,
+)
+
+for public_access["messages"] as address, message {
+	violations[address + ".public"] = const.message + " Unauthenticated access on " + address
+	print(violations[address + ".public"])
+}
+
+main = rule {
+	length(violations) is 0
+}

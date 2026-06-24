@@ -10,9 +10,9 @@ Designed for [HCP Terraform](https://developer.hashicorp.com/terraform/cloud-doc
 
 | Attribute | Detail |
 |-----------|--------|
-| **Scope** | Tier-1 [terraform-aws-modules](https://registry.terraform.io/namespaces/terraform-aws-modules) (IAM, VPC, S3, KMS, SG, EKS, RDS, EC2, ALB, Lambda) |
+| **Scope** | All **57** published [terraform-aws-modules](https://registry.terraform.io/namespaces/terraform-aws-modules) |
 | **Import** | `tfplan/v2` |
-| **Policy count** | 16 policies across 10 module families |
+| **Policy count** | **63** policies (module-specific + cross-cutting) |
 | **Enforcement** | Configurable per policy (`hard-mandatory`, `soft-mandatory`, `advisory`) |
 
 ### Design principles
@@ -49,85 +49,86 @@ Sentinel discovers test cases at `policies/test/<policy-name>/*.hcl` relative to
 
 ---
 
-## Policy catalog
+## Module coverage (all 57 terraform-aws-modules)
 
-### S3 — `terraform-aws-modules/s3-bucket/aws`
+Every published module in the `terraform-aws-modules` namespace has at least one aligned Sentinel policy. Wrapper modules (`solutions`, `pricing`, `datadog-forwarders`) delegate to underlying AWS resources or pass via advisory policies where no resources are created.
 
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `s3-public-access-block` | `aws_s3_bucket`, `aws_s3_bucket_public_access_block` | All four Block Public Access settings enabled | hard-mandatory |
-| `s3-server-side-encryption` | `aws_s3_bucket`, `aws_s3_bucket_server_side_encryption_configuration` | SSE with `AES256` or `aws:kms` | hard-mandatory |
-| `s3-versioning-enabled` | `aws_s3_bucket`, `aws_s3_bucket_versioning` | Versioning enabled | hard-mandatory |
+| Module | Policy(ies) |
+|--------|-------------|
+| `acm` | `acm-certificate-baseline` |
+| `alb` | `alb-security-baseline` |
+| `apigateway-v2` | `apigateway-v2-authorization-required` |
+| `app-runner` | `app-runner-no-public-access` |
+| `appconfig` | `appconfig-validators-required` |
+| `appsync` | `appsync-no-api-key-auth` |
+| `atlantis` | `atlantis-security-baseline` |
+| `autoscaling` | `autoscaling-no-public-ip` |
+| `batch` | `batch-security-groups-required` |
+| `cloudfront` | `cloudfront-https-only` |
+| `cloudwatch` | `cloudwatch-log-retention` |
+| `customer-gateway` | `customer-gateway-baseline` |
+| `datadog-forwarders` | `datadog-forwarders-security-baseline` |
+| `dms` | `dms-no-public-access` |
+| `dynamodb-table` | `dynamodb-encryption-required` |
+| `ebs-optimized` | `ebs-encryption-required` |
+| `ec2-instance` | `ec2-imdsv2-required` |
+| `ecr` | `ecr-scan-on-push` |
+| `ecs` | `ecs-no-public-ip` |
+| `efs` | `efs-encryption-required` |
+| `eks` | `eks-private-endpoint-required`, `eks-control-plane-logging` |
+| `eks-pod-identity` | `eks-pod-identity-baseline` |
+| `elasticache` | `elasticache-encryption-at-rest` |
+| `elb` | `elb-security-baseline` |
+| `emr` | `emr-security-configuration-required` |
+| `eventbridge` | `eventbridge-bus-policy-required` |
+| `fsx` | `fsx-encryption-required` |
+| `global-accelerator` | `global-accelerator-flow-logs` |
+| `iam` | `iam-no-wildcard-actions` |
+| `key-pair` | `key-pair-algorithm-baseline` |
+| `kms` | `kms-key-rotation-enabled` |
+| `lambda` | `lambda-vpc-config-required` |
+| `managed-service-grafana` | `amg-authentication-required` |
+| `managed-service-prometheus` | `amp-workspace-baseline` |
+| `memory-db` | `memorydb-tls-required` |
+| `msk-kafka-cluster` | `msk-encryption-no-public-access` |
+| `network-firewall` | `network-firewall-deletion-protection` |
+| `notify-slack` | `notify-slack-sns-encryption` |
+| `opensearch` | `opensearch-encryption-required` |
+| `pricing` | `pricing-module-baseline` (advisory — data sources only) |
+| `rds` | `rds-encryption-at-rest`, `rds-no-public-access` |
+| `rds-aurora` | `rds-encryption-at-rest`, `rds-no-public-access` |
+| `rds-proxy` | `rds-proxy-tls-required` |
+| `redshift` | `redshift-encryption-no-public-access` |
+| `route53` | `route53-no-force-destroy` |
+| `s3-bucket` | `s3-public-access-block`, `s3-server-side-encryption`, `s3-versioning-enabled` |
+| `secrets-manager` | `secrets-manager-kms-required` |
+| `security-group` | `sg-no-public-ingress` |
+| `sns` | `sns-encryption-required` |
+| `solutions` | `solutions-module-baseline` (advisory — composed modules) |
+| `sqs` | `sqs-encryption-required` |
+| `ssm-parameter` | `ssm-securestring-for-secrets` |
+| `step-functions` | `step-functions-logging-required` |
+| `transit-gateway` | `transit-gateway-auto-accept-disabled` |
+| `vpc` | `vpc-flow-logs-required`, `vpc-dns-support-enabled` |
+| `vpn-gateway` | `vpn-tunnel-logging-enabled` |
+| `wafv2` | `wafv2-logging-required` |
+| **NLB** (via `alb` module) | `nlb-security-baseline` |
+| **All modules** | `required-tags` (cross-cutting) |
 
-**Module alignment:** Set `block_public_acls`, `block_public_policy`, `ignore_public_acls`, `restrict_public_buckets`, `server_side_encryption_configuration`, and `versioning = { enabled = true }` in the s3-bucket module.
+---
 
-### VPC — `terraform-aws-modules/vpc/aws`
+## Policy catalog (by domain)
 
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `vpc-flow-logs-required` | `aws_vpc`, `aws_flow_log` | At least one flow log per VPC; `traffic_type = ALL` | hard-mandatory |
+See `policies/*.sentinel` for full resource types and module headers. All policies default to `hard-mandatory` unless noted.
 
-**Module alignment:** Set `enable_flow_log = true` and `flow_log_traffic_type = "ALL"`.
-
-### IAM — `terraform-aws-modules/iam/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `iam-no-wildcard-actions` | `aws_iam_policy`, `aws_iam_role_policy`, `aws_iam_user_policy`, `aws_iam_group_policy` | No `Action` or `NotAction` wildcard (`*`) | hard-mandatory |
-
-### KMS — `terraform-aws-modules/kms/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `kms-key-rotation-enabled` | `aws_kms_key` | `enable_key_rotation = true` | hard-mandatory |
-
-### Security Group — `terraform-aws-modules/security-group/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `sg-no-public-ingress` | `aws_security_group`, `aws_security_group_rule`, `aws_vpc_security_group_ingress_rule` | No ingress from `0.0.0.0/0` or `::/0` | hard-mandatory |
-
-### EKS — `terraform-aws-modules/eks/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `eks-private-endpoint-required` | `aws_eks_cluster` | `endpoint_private_access = true` | hard-mandatory |
-| `eks-control-plane-logging` | `aws_eks_cluster` | `enabled_cluster_log_types` includes `api` and `audit` | hard-mandatory |
-
-**Module alignment:** Set `cluster_endpoint_private_access = true` and enable control plane log types in the eks module.
-
-### RDS — `terraform-aws-modules/rds/aws`, `rds-aurora/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `rds-encryption-at-rest` | `aws_db_instance`, `aws_rds_cluster` | `storage_encrypted = true` | hard-mandatory |
-| `rds-no-public-access` | `aws_db_instance`, `aws_rds_cluster_instance` | `publicly_accessible = false` | hard-mandatory |
-
-### EC2 — `terraform-aws-modules/ec2-instance/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `ec2-imdsv2-required` | `aws_instance`, `aws_launch_template` | `metadata_options.http_tokens = required` | hard-mandatory |
-
-### ALB — `terraform-aws-modules/alb/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `alb-security-baseline` | `aws_lb` (application) | Deletion protection enabled; access logs enabled | hard-mandatory |
-
-### Lambda — `terraform-aws-modules/lambda/aws`
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `lambda-vpc-config-required` | `aws_lambda_function` | `vpc_config` with subnets and security groups | advisory |
-
-> **Note:** Lambda VPC enforcement is `advisory` by default because not all functions require VPC placement. Promote to `hard-mandatory` for production workspaces.
-
-### Cross-cutting
-
-| Policy | AWS resources | Rule | Enforcement |
-|--------|---------------|------|-------------|
-| `required-tags` | All managed `aws_*` resources | Tags: `Environment`, `Owner`, `ManagedBy` | soft-mandatory |
+| Domain | Policies |
+|--------|----------|
+| Foundation & security | `s3-*`, `kms-*`, `iam-*`, `secrets-manager-*`, `sg-*`, `required-tags` |
+| Networking & edge | `vpc-*`, `alb-*`, `nlb-*`, `elb-*`, `cloudfront-*`, `apigateway-v2-*`, `wafv2-*`, `global-accelerator-*`, `transit-gateway-*`, `vpn-*`, `customer-gateway-*`, `network-firewall-*` |
+| Compute & containers | `ec2-*`, `ebs-*`, `autoscaling-*`, `lambda-*`, `ecs-*`, `ecr-*`, `eks-*`, `app-runner-*`, `batch-*`, `emr-*`, `atlantis-*` |
+| Data & messaging | `rds-*`, `dynamodb-*`, `elasticache-*`, `memorydb-*`, `efs-*`, `fsx-*`, `msk-*`, `opensearch-*`, `redshift-*`, `sns-*`, `sqs-*`, `notify-slack-*`, `dms-*` |
+| Observability & config | `cloudwatch-*`, `eventbridge-*`, `step-functions-*`, `ssm-*`, `appconfig-*`, `appsync-*`, `acm-*`, `amg-*`, `amp-*`, `route53-*`, `key-pair-*`, `datadog-forwarders-*` |
+| Advisory | `pricing-module-baseline`, `solutions-module-baseline`, `lambda-vpc-config-required` |
 
 ---
 
@@ -277,13 +278,9 @@ Security controls (encryption, public access, IAM wildcards) default to **hard-m
 
 ---
 
-## Roadmap — additional terraform-aws-modules
+## Future enhancements
 
-The following registry modules are not yet covered and are candidates for future policies:
-
-`acm`, `apigateway-v2`, `cloudfront`, `dynamodb-table`, `ecr`, `ecs`, `elasticache`, `secrets-manager`, `sns`, `sqs`, `ssm-parameter`, `transit-gateway`, `wafv2`
-
-Contributions for these modules follow the same pattern: map module outputs to AWS resource types, write a focused policy, add tests.
+All 57 registry modules have baseline coverage. Planned improvements: deeper per-module rules, additional pass/fail unit tests, and policy parameterization via Sentinel params.
 
 ---
 

@@ -1,0 +1,30 @@
+# SQS queues must use KMS or SQS-managed SSE encryption.
+#
+# Module : terraform-aws-modules/sqs/aws
+# Resource: aws_sqs_queue
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "sqs-encryption-required",
+	"message":     "SQS queues must use kms_master_key_id or sqs_managed_sse_enabled.",
+}
+
+queues = plan.find_resources("aws_sqs_queue")
+
+violations = {}
+
+for queues as address, queue {
+	kms = plan.evaluate_attribute(queue, "kms_master_key_id")
+	sse = plan.evaluate_attribute(queue, "sqs_managed_sse_enabled")
+	if (kms is null or kms is "") and sse is not true {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}

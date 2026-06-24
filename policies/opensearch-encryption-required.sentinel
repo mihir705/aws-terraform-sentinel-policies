@@ -1,0 +1,44 @@
+# OpenSearch domains must enable encryption at rest and node-to-node encryption.
+#
+# Module : terraform-aws-modules/opensearch/aws
+# Resource: aws_opensearch_domain
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "opensearch-encryption-required",
+	"message":     "OpenSearch domains must enable encrypt_at_rest and node_to_node_encryption.",
+}
+
+domains = plan.find_resources("aws_opensearch_domain")
+
+violations = {}
+
+at_rest = plan.filter_attribute_not_in_list(
+	domains,
+	"encrypt_at_rest.0.enabled",
+	[true],
+	false,
+)
+
+node = plan.filter_attribute_not_in_list(
+	domains,
+	"node_to_node_encryption.0.enabled",
+	[true],
+	false,
+)
+
+for at_rest["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+for node["messages"] as key, message {
+	violations[key] = message
+	print(message)
+}
+
+main = rule {
+	length(violations) is 0
+}

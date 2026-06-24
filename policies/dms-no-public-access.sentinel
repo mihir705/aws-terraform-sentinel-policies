@@ -1,0 +1,25 @@
+# DMS replication instances must not be publicly accessible.
+#
+# Module : terraform-aws-modules/dms/aws
+# Resource: aws_dms_replication_instance
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "dms-no-public-access",
+	"message":     "DMS replication instances must not be publicly accessible.",
+}
+
+instances = plan.find_resources("aws_dms_replication_instance")
+
+violations = plan.filter_attribute_is_value(
+	instances,
+	"publicly_accessible",
+	true,
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

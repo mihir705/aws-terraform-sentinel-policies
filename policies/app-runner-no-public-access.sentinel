@@ -1,0 +1,25 @@
+# App Runner services must not be publicly accessible.
+#
+# Module : terraform-aws-modules/app-runner/aws
+# Resource: aws_apprunner_service
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "app-runner-no-public-access",
+	"message":     "App Runner services must set is_publicly_accessible to false.",
+}
+
+services = plan.find_resources("aws_apprunner_service")
+
+violations = plan.filter_attribute_is_value(
+	services,
+	"network_configuration.0.ingress_configuration.0.is_publicly_accessible",
+	true,
+	true,
+)
+
+main = rule {
+	length(violations["messages"]) is 0
+}

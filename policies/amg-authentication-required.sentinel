@@ -1,0 +1,29 @@
+# Amazon Managed Grafana workspaces must use SAML or AWS SSO authentication.
+#
+# Module : terraform-aws-modules/managed-service-grafana/aws
+# Resource: aws_grafana_workspace
+
+import "tfplan/v2" as tfplan
+import "tfplan-functions" as plan
+
+const = {
+	"policy_name": "amg-authentication-required",
+	"message":     "Managed Grafana workspaces must configure authentication_providers (SAML or AWS_SSO).",
+}
+
+workspaces = plan.find_resources("aws_grafana_workspace")
+
+violations = {}
+
+for workspaces as address, ws {
+	providers = plan.evaluate_attribute(ws, "authentication_providers") else []
+	if length(providers) is 0 {
+		message = const.message + " Resource: " + address
+		violations[address] = message
+		print(message)
+	}
+}
+
+main = rule {
+	length(violations) is 0
+}
